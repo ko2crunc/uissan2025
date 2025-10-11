@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lucky Draw - VIP</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(0, 255, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 50%, rgba(138, 43, 226, 0.1) 0%, transparent 50%);
+            animation: bgPulse 4s ease-in-out infinite;
+        }
+
+        @keyframes bgPulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        .container {
+            text-align: center;
+            width: 90%;
+            max-width: 1200px;
+            position: relative;
+            z-index: 1;
+        }
+
+        h1 {
+            color: #00ffff;
+            font-size: 3em;
+            margin-bottom: 40px;
+            text-shadow: 
+                0 0 10px #00ffff,
+                0 0 20px #00ffff,
+                0 0 30px #00ffff;
+            animation: neonPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes neonPulse {
+            0%, 100% { 
+                text-shadow: 
+                    0 0 10px #00ffff,
+                    0 0 20px #00ffff,
+                    0 0 30px #00ffff;
+            }
+            50% { 
+                text-shadow: 
+                    0 0 20px #00ffff,
+                    0 0 40px #00ffff,
+                    0 0 60px #00ffff,
+                    0 0 80px #00ffff;
+            }
+        }
+
+        .subtitle {
+            color: rgba(255,255,255,0.9);
+            font-size: 1.5em;
+            margin-bottom: 60px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+        }
+
+        .draw-button {
+            background: linear-gradient(45deg, #5fffff, #00ffff);
+            color: white;
+            font-size: 2em;
+            font-weight: bold;
+            padding: 30px 80px;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .draw-button:hover {
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.4);
+        }
+
+        .draw-button:active {
+            transform: translateY(-2px) scale(1.02);
+        }
+
+        .draw-button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: #00ffff;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #00ffff;
+            animation: particleFloat 4s ease-in-out infinite;
+        }
+
+        @keyframes particleFloat {
+            0%, 100% { 
+                transform: translate(0, 0);
+                opacity: 0.3;
+            }
+            50% { 
+                transform: translate(var(--tx), var(--ty));
+                opacity: 1;
+            }
+        }
+
+        .error-message {
+            color: #ff6b6b;
+            background: rgba(255, 107, 107, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            border: 1px solid #ff6b6b;
+        }
+
+        .success-message {
+            color: #51cf66;
+            background: rgba(81, 207, 102, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            border: 1px solid #51cf66;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎉 Lucky Draw 🎉</h1>
+        <p class="subtitle">Press the button to draw a winner!</p>
+        <button class="draw-button" id="drawBtn">Draw Winner</button>
+        <div id="statusMessage"></div>
+    </div>
+
+    <script>
+        const drawBtn = document.getElementById('drawBtn');
+        const statusMessage = document.getElementById('statusMessage');
+        let database = null;
+        let isDrawing = false;
+
+        // Create floating particles
+        function createParticles() {
+            for (let i = 0; i < 30; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.top = Math.random() * 100 + '%';
+                particle.style.setProperty('--tx', (Math.random() - 0.5) * 200 + 'px');
+                particle.style.setProperty('--ty', (Math.random() - 0.5) * 200 + 'px');
+                particle.style.animationDelay = Math.random() * 4 + 's';
+                particle.style.animationDuration = (3 + Math.random() * 2) + 's';
+                document.body.appendChild(particle);
+            }
+        }
+        createParticles();
+
+        // Initialize Firebase
+        function initFirebase() {
+            const firebaseUrl = localStorage.getItem('firebaseUrl');
+            if (firebaseUrl) {
+                try {
+                    const config = {
+                        databaseURL: firebaseUrl
+                    };
+                    
+                    if (!firebase.apps.length) {
+                        firebase.initializeApp(config);
+                    }
+                    
+                    database = firebase.database();
+                    setupListeners();
+                    showMessage('Connected to Firebase', 'success');
+                    return true;
+                } catch (error) {
+                    console.error('Firebase init error:', error);
+                    showMessage('Firebase connection failed. Please configure in Admin page.', 'error');
+                    drawBtn.disabled = true;
+                    return false;
+                }
+            } else {
+                showMessage('Firebase not configured. Please configure in Admin page.', 'error');
+                drawBtn.disabled = true;
+                return false;
+            }
+        }
+
+        function showMessage(message, type) {
+            statusMessage.innerHTML = `<div class="${type}-message">${message}</div>`;
+            if (type === 'success') {
+                setTimeout(() => {
+                    statusMessage.innerHTML = '';
+                }, 3000);
+            }
+        }
+
+        // Check if button should be enabled
+        function checkButtonState() {
+            if (!database) return;
+            
+            database.ref('currentDraw').once('value', (snapshot) => {
+                const currentDraw = snapshot.val();
+                
+                if (currentDraw && !isDrawing) {
+                    drawBtn.disabled = true;
+                    drawBtn.textContent = 'Waiting for Confirmation...';
+                } else if (!isDrawing) {
+                    drawBtn.disabled = false;
+                    drawBtn.textContent = 'Draw Winner';
+                }
+            });
+        }
+
+        function setupListeners() {
+            if (!database) return;
+
+            // Listen for current draw changes
+            database.ref('currentDraw').on('value', (snapshot) => {
+                const currentDraw = snapshot.val();
+                if (!isDrawing) {
+                    if (currentDraw) {
+                        drawBtn.disabled = true;
+                        drawBtn.textContent = 'Waiting for Confirmation...';
+                    } else {
+                        drawBtn.disabled = false;
+                        drawBtn.textContent = 'Draw Winner';
+                    }
+                }
+            });
+        }
+
+        drawBtn.addEventListener('click', function() {
+            if (!database) {
+                showMessage('Firebase not connected!', 'error');
+                return;
+            }
+
+            // Check if there's already a pending draw
+            database.ref('currentDraw').once('value', (snapshot) => {
+                const currentDraw = snapshot.val();
+                if (currentDraw) {
+                    showMessage('Please wait for admin to confirm the current winner before drawing again.', 'error');
+                    return;
+                }
+
+                // Trigger draw
+                database.ref('drawTrigger').set(Date.now());
+                
+                // Update button state
+                isDrawing = true;
+                drawBtn.disabled = true;
+                drawBtn.textContent = 'Drawing...';
+                showMessage('Drawing winner...', 'success');
+                
+                // After 8 seconds, if no confirmation yet, keep disabled
+                setTimeout(() => {
+                    isDrawing = false;
+                    checkButtonState();
+                }, 8000);
+            });
+        });
+
+        // Initialize Firebase on load
+        if (initFirebase()) {
+            checkButtonState();
+        }
+    </script>
+</body>
+</html>
