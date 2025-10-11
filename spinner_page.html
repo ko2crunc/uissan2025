@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lucky Draw Display</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(0, 255, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 50%, rgba(138, 43, 226, 0.1) 0%, transparent 50%);
+            animation: bgPulse 4s ease-in-out infinite;
+        }
+
+        @keyframes bgPulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        .container {
+            text-align: center;
+            width: 90%;
+            max-width: 1200px;
+            position: relative;
+            z-index: 1;
+        }
+
+        h1 {
+            color: #00ffff;
+            font-size: 3em;
+            margin-bottom: 40px;
+            text-shadow: 
+                0 0 10px #00ffff,
+                0 0 20px #00ffff,
+                0 0 30px #00ffff;
+            animation: neonPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes neonPulse {
+            0%, 100% { 
+                text-shadow: 
+                    0 0 10px #00ffff,
+                    0 0 20px #00ffff,
+                    0 0 30px #00ffff;
+            }
+            50% { 
+                text-shadow: 
+                    0 0 20px #00ffff,
+                    0 0 40px #00ffff,
+                    0 0 60px #00ffff,
+                    0 0 80px #00ffff;
+            }
+        }
+
+        .spinner-container {
+            position: relative;
+            width: 520px;
+            height: 520px;
+            margin: 0 auto 40px;
+        }
+
+        .neon-ring {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            animation: ringRotate 8s linear infinite;
+        }
+
+        .neon-ring-1 {
+            width: 520px;
+            height: 520px;
+            border: 4px solid transparent;
+            border-top: 4px solid #00ffff;
+            border-right: 4px solid #ff00ff;
+            box-shadow: 
+                0 0 10px #00ffff,
+                0 0 20px #00ffff,
+                inset 0 0 10px #00ffff;
+        }
+
+        .neon-ring-2 {
+            width: 540px;
+            height: 540px;
+            border: 3px solid transparent;
+            border-bottom: 3px solid #ff00ff;
+            border-left: 3px solid #00ffff;
+            box-shadow: 
+                0 0 10px #ff00ff,
+                0 0 20px #ff00ff,
+                inset 0 0 10px #ff00ff;
+            animation-direction: reverse;
+            animation-duration: 10s;
+        }
+
+        @keyframes ringRotate {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        .wheel-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 480px;
+            height: 480px;
+        }
+
+        .wheel-outer {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: 
+                radial-gradient(circle at 30% 30%, rgba(0, 255, 255, 0.2), transparent 70%),
+                linear-gradient(135deg, #1a1a2e 0%, #0f0f1e 100%);
+            box-shadow: 
+                0 0 0 8px #00ffff,
+                0 0 0 12px rgba(0, 255, 255, 0.5),
+                0 0 40px rgba(0, 255, 255, 0.8),
+                inset 0 0 50px rgba(0, 255, 255, 0.1);
+            padding: 20px;
+        }
+
+        .wheel-outer.spinning {
+            box-shadow: 
+                0 0 0 8px #00ffff,
+                0 0 0 12px rgba(0, 255, 255, 0.8),
+                0 0 80px rgba(0, 255, 255, 1),
+                0 0 120px rgba(0, 255, 255, 0.8),
+                0 0 160px rgba(138, 43, 226, 0.6),
+                inset 0 0 50px rgba(0, 255, 255, 0.3);
+            animation: neonBurst 0.3s ease-in-out infinite;
+        }
+
+        @keyframes neonBurst {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+        }
+
+        .wheel-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: none;
+        }
+
+        .wheel-wrapper.active {
+            animation: hyperSpin 0.04s linear infinite;
+        }
+
+        .wheel-wrapper.slowing {
+            animation: none;
+            transition: transform 5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        @keyframes hyperSpin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            filter: brightness(1) contrast(1.1);
+            transition: filter 0.3s;
+        }
+
+        canvas.spinning {
+            filter: brightness(1.8) contrast(1.3) saturate(2) blur(3px);
+        }
+
+        .center-orb {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90px;
+            height: 90px;
+            background: 
+                radial-gradient(circle at 35% 35%, #00ffff, #00cccc, #008b8b);
+            border-radius: 50%;
+            border: 4px solid #00ffff;
+            box-shadow: 
+                0 0 20px #00ffff,
+                0 0 40px #00ffff,
+                0 0 60px rgba(0, 255, 255, 0.6),
+                inset 0 0 20px rgba(255, 255, 255, 0.4),
+                inset 0 -5px 15px rgba(0, 0, 0, 0.4);
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2em;
+            animation: orbPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes orbPulse {
+            0%, 100% { 
+                box-shadow: 
+                    0 0 20px #00ffff,
+                    0 0 40px #00ffff,
+                    0 0 60px rgba(0, 255, 255, 0.6),
+                    inset 0 0 20px rgba(255, 255, 255, 0.4);
+            }
+            50% { 
+                box-shadow: 
+                    0 0 30px #00ffff,
+                    0 0 60px #00ffff,
+                    0 0 90px rgba(0, 255, 255, 1),
+                    inset 0 0 30px rgba(255, 255, 255, 0.6);
+            }
+        }
+
+        .triangle-pointer {
+            position: absolute;
+            top: -50px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+        }
+
+        .triangle {
+            width: 0;
+            height: 0;
+            border-left: 40px solid transparent;
+            border-right: 40px solid transparent;
+            border-top: 70px solid #ff00ff;
+            filter: drop-shadow(0 0 15px #ff00ff) drop-shadow(0 8px 20px rgba(0,0,0,0.6));
+            animation: triangleBounce 1s ease-in-out infinite;
+            position: relative;
+        }
+
+        .triangle::before {
+            content: '▼';
+            position: absolute;
+            top: -60px;
+            left: -20px;
+            font-size: 2.5em;
+            color: #fff;
+            text-shadow: 
+                0 0 10px #ff00ff,
+                0 0 20px #ff00ff;
+        }
+
+        .triangle-pointer.spinning .triangle {
+            animation: triangleShake 0.08s ease-in-out infinite;
+        }
+
+        @keyframes triangleBounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-12px); }
+        }
+
+        @keyframes triangleShake {
+            0%, 100% { transform: rotate(0deg) scale(1); }
+            25% { transform: rotate(-10deg) scale(1.12); }
+            50% { transform: rotate(0deg) scale(1.08); }
+            75% { transform: rotate(10deg) scale(1.12); }
+        }
+
+        .prize-info {
+            background: linear-gradient(135deg, rgba(26, 26, 46, 0.95) 0%, rgba(15, 15, 30, 0.95) 100%);
+            padding: 40px 60px;
+            border-radius: 25px;
+            box-shadow: 
+                0 20px 60px rgba(0,0,0,0.5),
+                0 0 0 3px #00ffff,
+                0 0 20px rgba(0, 255, 255, 0.6);
+            border: 2px solid #00ffff;
+            margin: 30px auto;
+            max-width: 800px;
+            min-height: 300px;
+            opacity: 0;
+            transform: scale(0.8);
+            transition: all 0.5s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .prize-info::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                45deg,
+                transparent,
+                rgba(0, 255, 255, 0.1),
+                transparent
+            );
+            animation: shine 3s infinite;
+            pointer-events: none;
+        }
+
+        @keyframes shine {
+            0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+        }
+
+        .prize-info.show {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .prize-section {
+            position: relative;
+            z-index: 1;
+        }
+
+        .prize-title {
+            font-size: 1.6em;
+            color: #00ffff;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            text-shadow: 0 0 10px #00ffff;
+        }
+
+        .prize-number {
+            font-size: 3.2em;
+            color: #00ffff;
+            font-weight: bold;
+            margin-bottom: 15px;
+            text-shadow: 
+                0 0 10px #00ffff,
+                0 0 20px #00ffff;
+        }
+
+        .prize-name {
+            font-size: 2.2em;
+            color: #ff00ff;
+            font-weight: bold;
+            line-height: 1.3;
+            text-shadow: 
+                0 0 10px #ff00ff,
+                0 0 20px #ff00ff;
+        }
+
+        .winner-section {
+            border-top: 2px solid #00ffff;
+            padding-top: 30px;
+            margin-top: 30px;
+            opacity: 0;
+            max-height: 0;
+            overflow: hidden;
+            transform: translateY(-20px);
+            transition: all 0.6s ease;
+            position: relative;
+            z-index: 1;
+        }
+
+        .winner-section.show {
+            opacity: 1;
+            max-height: 300px;
+            transform: translateY(0);
+        }
+
+        .winner-label {
+            font-size: 1.4em;
+            color: #ff00ff;
+            font-weight: bold;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px #ff00ff;
+        }
+
+        .winner-name {
+            font-size: 3.2em;
+            color: #00ffff;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-shadow: 
+                0 0 10px #00ffff,
+                0 0 20px #00ffff;
+        }
+
+        .winner-employee {
+            font-size: 1.9em;
+            color: #ff00ff;
+            font-weight: 600;
+            text-shadow: 0 0 10px #ff00ff;
+        }
+
+        .firework {
+            position: absolute;
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            animation: firework 1s ease-out forwards;
+        }
+
+        @keyframes firework {
+            0% {
+                opacity: 1;
+                transform: translate(0, 0) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(var(--x), var(--y)) scale(0);
+            }
+        }
+
+        .standby-text {
+            color: #00ffff;
+            font-size: 2em;
+            margin-top: 50px;
+            text-shadow: 0 0 10px #00ffff;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: #00ffff;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #00ffff;
+            animation: particleFloat 4s ease-in-out infinite;
+        }
+
+        @keyframes particleFloat {
+            0%, 100% { 
+                transform: translate(0, 0);
+                opacity: 0.3;
+            }
+            50% { 
+                transform: translate(var(--tx), var(--ty));
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎊 Lucky Draw 🎊</h1>
+        
+        <div class="spinner-container">
+            <div class="neon-ring neon-ring-1"></div>
+            <div class="neon-ring neon-ring-2"></div>
+            
+            <div class="triangle-pointer" id="trianglePointer">
+                <div class="triangle"></div>
+            </div>
+            
+            <div class="wheel-container">
+                <div class="wheel-outer" id="wheelOuter">
+                    <div class="wheel-wrapper" id="wheelWrapper">
+                        <canvas id="wheelCanvas" width="440" height="440"></canvas>
+                        <div class="center-orb">⚡</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="prize-info" id="prizeInfo">
+            <div class="prize-section">
+                <div class="prize-title">🎁 DRAWING FOR 🎁</div>
+                <div class="prize-number" id="prizeNumber"></div>
+                <div class="prize-name" id="prizeName"></div>
+            </div>
+            
+            <div class="winner-section" id="winnerSection">
+                <div class="winner-label">🏆 WINNER 🏆</div>
+                <div class="winner-name" id="winnerName"></div>
+                <div class="winner-employee" id="winnerEmployee"></div>
+            </div>
+        </div>
+
+        <div class="standby-text" id="standbyText">Waiting for draw...</div>
+    </div>
+
+    <script>
+        const wheelOuter = document.getElementById('wheelOuter');
+        const wheelWrapper = document.getElementById('wheelWrapper');
+        const canvas = document.getElementById('wheelCanvas');
+        const ctx = canvas.getContext('2d');
+        const trianglePointer = document.getElementById('trianglePointer');
+        const prizeInfo = document.getElementById('prizeInfo');
+        const prizeNumber = document.getElementById('prizeNumber');
+        const prizeName = document.getElementById('prizeName');
+        const winnerSection = document.getElementById('winnerSection');
+        const winnerName = document.getElementById('winnerName');
+        const winnerEmployee = document.getElementById('winnerEmployee');
+        const standbyText = document.getElementById('standbyText');
+
+        let database = null;
+        let lastTrigger = 0;
+
+        const colors = [
+            '#00ffff', '#ff00ff', '#00ff00', '#ffff00', '#ff0080',
+            '#0080ff', '#ff8000', '#8000ff', '#00ff80', '#ff0040',
+            '#40ff00', '#0040ff', '#ff4000', '#4000ff', '#00ff40'
+        ];
+
+        // Initialize Firebase
+        function initFirebase() {
+            const firebaseUrl = localStorage.getItem('firebaseUrl');
+            if (firebaseUrl) {
+                try {
+                    const config = {
+                        databaseURL: firebaseUrl
+                    };
+                    
+                    if (!firebase.apps.length) {
+                        firebase.initializeApp(config);
+                    }
+                    
+                    database = firebase.database();
+                    setupListeners();
+                    loadPrizesAndDrawWheel();
+                    return true;
+                } catch (error) {
+                    console.error('Firebase init error:', error);
+                    standbyText.textContent = 'Firebase connection failed. Please configure in Admin page.';
+                    return false;
+                }
+            } else {
+                standbyText.textContent = 'Firebase not configured. Please configure in Admin page.';
+                return false;
+            }
+        }
+
+        // Create floating particles
+        function createParticles() {
+            for (let i = 0; i < 30; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.top = Math.random() * 100 + '%';
+                particle.style.setProperty('--tx', (Math.random() - 0.5) * 200 + 'px');
+                particle.style.setProperty('--ty', (Math.random() - 0.5) * 200 + 'px');
+                particle.style.animationDelay = Math.random() * 4 + 's';
+                particle.style.animationDuration = (3 + Math.random() * 2) + 's';
+                document.body.appendChild(particle);
+            }
+        }
+        createParticles();
+
+        function drawWheel(prizes) {
+            if (!prizes || prizes.length === 0) return;
+
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = canvas.width / 2 - 5;
+            const numSegments = prizes.length;
+            const anglePerSegment = (2 * Math.PI) / numSegments;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            prizes.forEach((prize, i) => {
+                const startAngle = i * anglePerSegment - Math.PI / 2;
+                const endAngle = startAngle + anglePerSegment;
+
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+                ctx.closePath();
+                
+                const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
+                gradient.addColorStop(0, 'rgba(0, 0, 0, 0.3)');
+                gradient.addColorStop(1, colors[i % colors.length]);
+                ctx.fillStyle = gradient;
+                ctx.fill();
+                
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(
+                    centerX + radius * Math.cos(startAngle),
+                    centerY + radius * Math.sin(startAngle)
+                );
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            });
+        }
+
+        function loadPrizesAndDrawWheel() {
+            if (!database) return;
+            
+            database.ref('prizes').once('value', (snapshot) => {
+                const prizes = snapshot.val() || [];
+                if (prizes.length > 0) {
+                    drawWheel(prizes);
+                }
+            });
+        }
+
+        function createFireworks() {
+            const colors = ['#00ffff', '#ff00ff', '#00ff00', '#ffff00', '#ff0080'];
+            for (let i = 0; i < 70; i++) {
+                setTimeout(() => {
+                    const firework = document.createElement('div');
+                    firework.className = 'firework';
+                    firework.style.left = Math.random() * 100 + '%';
+                    firework.style.top = Math.random() * 100 + '%';
+                    firework.style.background = colors[Math.floor(Math.random() * colors.length)];
+                    firework.style.boxShadow = `0 0 10px ${colors[Math.floor(Math.random() * colors.length)]}`;
+                    firework.style.setProperty('--x', (Math.random() - 0.5) * 600 + 'px');
+                    firework.style.setProperty('--y', (Math.random() - 0.5) * 600 + 'px');
+                    document.body.appendChild(firework);
+                    
+                    setTimeout(() => firework.remove(), 1000);
+                }, i * 20);
+            }
+        }
+
+        function startDraw() {
+            standbyText.style.display = 'none';
+            winnerSection.classList.remove('show');
+            prizeInfo.classList.remove('show');
+            
+            Promise.all([
+                database.ref('employees').once('value'),
+                database.ref('prizes').once('value'),
+                database.ref('winners').once('value')
+            ]).then(([employeesSnapshot, prizesSnapshot, winnersSnapshot]) => {
+                const employees = employeesSnapshot.val() || [];
+                const prizes = prizesSnapshot.val() || [];
+                const winners = winnersSnapshot.val() || [];
+                
+                if (employees.length === 0) {
+                    standbyText.textContent = 'Please load employee list in Admin page first!';
+                    standbyText.style.display = 'block';
+                    return;
+                }
+                
+                if (prizes.length === 0) {
+                    standbyText.textContent = 'Please load prize list in Admin page first!';
+                    standbyText.style.display = 'block';
+                    return;
+                }
+                
+                const wonEmployeeNumbers = winners.map(w => w.employeeNumber);
+                const availableEmployees = employees.filter(e => !wonEmployeeNumbers.includes(e.employeeNumber));
+                
+                if (availableEmployees.length === 0) {
+                    standbyText.textContent = 'No more employees available!';
+                    standbyText.style.display = 'block';
+                    return;
+                }
+
+                const awardedPrizeNumbers = winners.map(w => w.prizeNumber);
+                const availablePrizes = prizes.filter(p => !awardedPrizeNumbers.includes(p.prizeNumber));
+                
+                if (availablePrizes.length === 0) {
+                    standbyText.textContent = 'All prizes have been awarded!';
+                    standbyText.style.display = 'block';
+                    return;
+                }
+                
+                const prize = availablePrizes[0];
+                
+                prizeNumber.textContent = `Prize #${prize.prizeNumber}`;
+                prizeName.textContent = prize.prizeName;
+                prizeInfo.classList.add('show');
+                
+                setTimeout(() => {
+                    canvas.classList.add('spinning');
+                    wheelOuter.classList.add('spinning');
+                    trianglePointer.classList.add('spinning');
+                    
+                    wheelWrapper.classList.add('active');
+                    
+                    setTimeout(() => {
+                        wheelWrapper.classList.remove('active');
+                        wheelWrapper.classList.add('slowing');
+                        
+                        const slowdownSpins = 8 + Math.random() * 4;
+                        const randomDegrees = Math.random() * 360;
+                        const totalRotation = (slowdownSpins * 360) + randomDegrees;
+                        
+                        wheelWrapper.style.transform = `rotate(${totalRotation}deg)`;
+
+                        setTimeout(() => {
+                            wheelWrapper.classList.remove('slowing');
+                            canvas.classList.remove('spinning');
+                            wheelOuter.classList.remove('spinning');
+                            trianglePointer.classList.remove('spinning');
+
+                            const winner = availableEmployees[Math.floor(Math.random() * availableEmployees.length)];
+
+                            const currentDraw = {
+                                name: winner.name,
+                                employeeNumber: winner.employeeNumber,
+                                prizeNumber: prize.prizeNumber,
+                                prizeName: prize.prizeName,
+                                prizePhoto: prize.prizePhoto || '',
+                                timestamp: Date.now()
+                            };
+                            
+                            database.ref('currentDraw').set(currentDraw);
+
+                            winnerName.textContent = winner.name;
+                            winnerEmployee.textContent = `Employee #${winner.employeeNumber}`;
+                            
+                            winnerSection.classList.add('show');
+                            createFireworks();
+                        }, 1000);
+                    }, 1000);
+                }, 2000);
+            });
+        }
+
+        function setupListeners() {
+            if (!database) return;
+
+            database.ref('drawTrigger').on('value', (snapshot) => {
+                const currentTrigger = snapshot.val() || 0;
+                if (currentTrigger !== lastTrigger && currentTrigger > 0) {
+                    lastTrigger = currentTrigger;
+                    startDraw();
+                }
+            });
+        }
+
+        // Initialize
+        initFirebase();
+    </script>
+</body>
+</html>
