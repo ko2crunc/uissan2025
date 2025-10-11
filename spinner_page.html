@@ -434,6 +434,71 @@
             }
         }
 
+        .firework-trail {
+            position: absolute;
+            width: 4px;
+            height: 80px;
+            background: linear-gradient(to top, transparent, var(--color));
+            animation: launch 1s ease-out forwards;
+            transform-origin: bottom;
+        }
+
+        @keyframes launch {
+            0% {
+                transform: translateY(0) scaleY(1);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(var(--launch-height)) scaleY(0);
+                opacity: 0;
+            }
+        }
+
+        .firework-explosion {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--color);
+            box-shadow: 0 0 20px var(--color);
+            animation: explode 1.2s ease-out forwards;
+        }
+
+        @keyframes explode {
+            0% {
+                opacity: 1;
+                transform: translate(0, 0) scale(1);
+            }
+            50% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0;
+                transform: translate(var(--dx), var(--dy)) scale(0);
+            }
+        }
+
+        .sparkle {
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            background: #fff;
+            border-radius: 50%;
+            animation: sparkle 0.8s ease-out forwards;
+            box-shadow: 0 0 8px #fff;
+        }
+
+        @keyframes sparkle {
+            0% {
+                opacity: 1;
+                transform: translate(0, 0) scale(1) rotate(0deg);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(var(--sx), var(--sy)) scale(0) rotate(720deg);
+            }
+        }
+
         .standby-text {
             color: #00ffff;
             font-size: 2em;
@@ -578,7 +643,7 @@
             const numSegments = prizes.length;
             const anglePerSegment = (2 * Math.PI) / numSegments;
 
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.clearRect(0, 0, canvas.width, canvas.width);
 
             prizes.forEach((prize, i) => {
                 const startAngle = i * anglePerSegment - Math.PI / 2;
@@ -623,21 +688,91 @@
         }
 
         function createFireworks() {
-            const colors = ['#00ffff', '#ff00ff', '#00ff00', '#ffff00', '#ff0080'];
-            for (let i = 0; i < 70; i++) {
+            const colors = ['#00ffff', '#ff00ff', '#00ff00', '#ffff00', '#ff0080', '#ff6b35', '#4ecdc4'];
+            
+            // Create multiple firework launches
+            for (let i = 0; i < 12; i++) {
                 setTimeout(() => {
-                    const firework = document.createElement('div');
-                    firework.className = 'firework';
-                    firework.style.left = Math.random() * 100 + '%';
-                    firework.style.top = Math.random() * 100 + '%';
-                    firework.style.background = colors[Math.floor(Math.random() * colors.length)];
-                    firework.style.boxShadow = `0 0 10px ${colors[Math.floor(Math.random() * colors.length)]}`;
-                    firework.style.setProperty('--x', (Math.random() - 0.5) * 600 + 'px');
-                    firework.style.setProperty('--y', (Math.random() - 0.5) * 600 + 'px');
-                    document.body.appendChild(firework);
+                    const launchX = 20 + Math.random() * 60;
+                    const launchY = 80 + Math.random() * 15;
+                    const color = colors[Math.floor(Math.random() * colors.length)];
                     
-                    setTimeout(() => firework.remove(), 1000);
-                }, i * 20);
+                    // Launch trail
+                    const trail = document.createElement('div');
+                    trail.className = 'firework-trail';
+                    trail.style.left = launchX + '%';
+                    trail.style.top = launchY + '%';
+                    trail.style.setProperty('--color', color);
+                    trail.style.setProperty('--launch-height', -(300 + Math.random() * 200) + 'px');
+                    document.body.appendChild(trail);
+                    
+                    setTimeout(() => trail.remove(), 1000);
+                    
+                    // Explosion after launch
+                    setTimeout(() => {
+                        const explosionX = launchX;
+                        const explosionY = launchY - 30 - Math.random() * 20;
+                        
+                        // Create explosion particles
+                        const particleCount = 25 + Math.floor(Math.random() * 15);
+                        for (let j = 0; j < particleCount; j++) {
+                            const angle = (Math.PI * 2 * j) / particleCount;
+                            const velocity = 100 + Math.random() * 150;
+                            const dx = Math.cos(angle) * velocity;
+                            const dy = Math.sin(angle) * velocity;
+                            
+                            const particle = document.createElement('div');
+                            particle.className = 'firework-explosion';
+                            particle.style.left = explosionX + '%';
+                            particle.style.top = explosionY + '%';
+                            particle.style.setProperty('--color', color);
+                            particle.style.setProperty('--dx', dx + 'px');
+                            particle.style.setProperty('--dy', dy + 'px');
+                            document.body.appendChild(particle);
+                            
+                            setTimeout(() => particle.remove(), 1200);
+                            
+                            // Add sparkles
+                            if (Math.random() > 0.6) {
+                                const sparkle = document.createElement('div');
+                                sparkle.className = 'sparkle';
+                                sparkle.style.left = explosionX + '%';
+                                sparkle.style.top = explosionY + '%';
+                                sparkle.style.setProperty('--sx', dx * 0.7 + 'px');
+                                sparkle.style.setProperty('--sy', dy * 0.7 + 'px');
+                                document.body.appendChild(sparkle);
+                                
+                                setTimeout(() => sparkle.remove(), 800);
+                            }
+                        }
+                        
+                        // Add ring explosion effect
+                        for (let ring = 0; ring < 3; ring++) {
+                            setTimeout(() => {
+                                const ringParticles = 16;
+                                for (let k = 0; k < ringParticles; k++) {
+                                    const angle = (Math.PI * 2 * k) / ringParticles;
+                                    const distance = 80 + ring * 40;
+                                    const dx = Math.cos(angle) * distance;
+                                    const dy = Math.sin(angle) * distance;
+                                    
+                                    const ringParticle = document.createElement('div');
+                                    ringParticle.className = 'firework';
+                                    ringParticle.style.left = explosionX + '%';
+                                    ringParticle.style.top = explosionY + '%';
+                                    ringParticle.style.background = color;
+                                    ringParticle.style.boxShadow = `0 0 15px ${color}`;
+                                    ringParticle.style.setProperty('--x', dx + 'px');
+                                    ringParticle.style.setProperty('--y', dy + 'px');
+                                    document.body.appendChild(ringParticle);
+                                    
+                                    setTimeout(() => ringParticle.remove(), 1000);
+                                }
+                            }, ring * 100);
+                        }
+                    }, 600);
+                    
+                }, i * 250);
             }
         }
 
