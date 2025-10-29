@@ -44,8 +44,8 @@
         }
 
         .container {
-	    position: absolute;
-	    margin-top: 230px;
+            position: absolute;
+            margin-top: 230px;
             text-align: center;
             width: 90%;
             max-width: 1400px;
@@ -222,7 +222,7 @@
                 0 0 0 3px #00ffff,
                 0 0 20px rgba(0, 255, 255, 0.6);
             margin: 30px auto;
-            width: 100;
+            width: 100%;
             min-height: 250px;
             opacity: 0;
             transform: scale(0.8);
@@ -465,8 +465,6 @@
             <div class="winner-section" id="winnerSection">
                 <div class="winner-name" id="winnerName"></div>
                 <div class="winner-separator">|</div>
-                <div class="winner-employee" id="winnerEmployee"></div>
-                <div class="winner-separator">|</div>
                 <div class="winner-costcentre" id="winnerCostcentre"></div>
             </div>
         </div>
@@ -499,13 +497,13 @@
         const prizePhotoContainer = document.getElementById('prizePhotoContainer');
         const winnerSection = document.getElementById('winnerSection');
         const winnerName = document.getElementById('winnerName');
-        const winnerEmployee = document.getElementById('winnerEmployee');
         const winnerCostcentre = document.getElementById('winnerCostcentre');
         const standbyText = document.getElementById('standbyText');
 
         let database = null;
         let lastTrigger = 0;
         let digitRollers = [];
+        let digitContainers = [];
 
         // Initialize Firebase
         function initFirebase() {
@@ -553,6 +551,10 @@
 
         // Initialize 8 digit containers
         function initializeDigits() {
+            digitsWrapper.innerHTML = ''; // Clear existing digits
+            digitRollers = [];
+            digitContainers = [];
+            
             for (let i = 0; i < 8; i++) {
                 const container = document.createElement('div');
                 container.className = 'digit-container';
@@ -560,12 +562,16 @@
                 const roller = document.createElement('div');
                 roller.className = 'digit-roller';
                 
-                // Create numbers 0-9 repeated multiple times for rolling effect
-                for (let j = 0; j < 50; j++) {
-                    const digitNum = document.createElement('div');
-                    digitNum.className = 'digit-number';
-                    digitNum.textContent = j % 10;
-                    roller.appendChild(digitNum);
+                // Create a strip of numbers 0-9 repeated for smooth rolling
+                // We'll create enough repetitions to allow smooth scrolling
+                const repetitions = 20; // Increased for smoother animation
+                for (let j = 0; j < repetitions; j++) {
+                    for (let digit = 0; digit <= 9; digit++) {
+                        const digitNum = document.createElement('div');
+                        digitNum.className = 'digit-number';
+                        digitNum.textContent = digit;
+                        roller.appendChild(digitNum);
+                    }
                 }
                 
                 const glow = document.createElement('div');
@@ -576,76 +582,145 @@
                 digitsWrapper.appendChild(container);
                 
                 digitRollers.push(roller);
+                digitContainers.push(container);
+                
+                // Initialize to show 0
+                roller.style.top = '0px';
             }
         }
 
-        // Set digit display
-        function setDigit(index, value) {
+        // Set a single digit to a specific value
+        function setDigit(index, value, smooth = false) {
             const roller = digitRollers[index];
-            const digit = parseInt(value);
-            // Position the roller to show the correct digit
-            roller.style.top = -(digit * 150) + 'px';
+            const digit = parseInt(value, 10);
+            
+            // Calculate the position to show the desired digit
+            // Since we have multiple sets of 0-9, we'll target the middle set
+            const middleSet = 10; // Target the 10th repetition (middle of 20)
+            const targetPosition = -(middleSet * 10 + digit) * 150;
+            
+            if (smooth) {
+                roller.style.transition = 'top 0.3s ease-out';
+            } else {
+                roller.style.transition = 'none';
+            }
+            
+            roller.style.top = targetPosition + 'px';
         }
 
-        // Display employee number
+        // Display employee number immediately (for showing initial state)
         function displayEmployeeNumber(employeeNumber) {
-            const paddedNumber = String(employeeNumber).padStart(8, '0');
+            const numberStr = String(employeeNumber).replace(/\D/g, '');
+            const paddedNumber = numberStr.padStart(8, '0');
+            
             for (let i = 0; i < 8; i++) {
-                setDigit(i, paddedNumber[i]);
+                setDigit(i, paddedNumber[i], false);
             }
         }
 
-        // Spin animation for digits
+        // Enhanced spin animation with proper final number display
         function spinDigits(finalNumber, callback) {
             jackpotContainer.classList.add('spinning');
             
-            // Start all digits spinning rapidly
-            const spinInterval = setInterval(() => {
-                digitRollers.forEach((roller, index) => {
-                    roller.classList.add('spinning');
-                    const randomPosition = -Math.floor(Math.random() * 40) * 150;
-                    roller.style.top = randomPosition + 'px';
-                });
-            }, 50);
+            // Format the final employee number
+            const numberStr = String(finalNumber).replace(/\D/g, '');
+            const paddedNumber = numberStr.padStart(8, '0');
+            
+            console.log('Spinning to employee number:', paddedNumber);
+            
+            // Create spinning intervals for each digit
+            const spinIntervals = [];
+            const spinSpeeds = [];
+            
+            // Start all digits spinning at different speeds for realism
+            digitRollers.forEach((roller, index) => {
+                roller.classList.add('spinning');
+                roller.style.transition = 'none';
+                
+                // Random initial speed for each digit
+                const speed = 30 + Math.random() * 20;
+                spinSpeeds.push(speed);
+                
+                let position = 0;
+                const interval = setInterval(() => {
+                    position -= 150; // Move one digit up
+                    
+                    // Reset position when we've scrolled too far
+                    if (position <= -3000) {
+                        position = 0;
+                    }
+                    
+                    roller.style.top = position + 'px';
+                }, speed);
+                
+                spinIntervals.push(interval);
+            });
 
-            // Stop digits one by one
-            const paddedNumber = String(finalNumber).padStart(8, '0');
-            const stopDelay = 3000; // Total spinning time
-            const delayBetweenDigits = 200; // Delay between each digit stopping
+            // Stop digits one by one from left to right
+            const stopDelay = 2000; // Initial spin duration
+            const delayBetweenDigits = 300; // Time between each digit stopping
 
-            paddedNumber.split('').forEach((digit, index) => {
+            paddedNumber.split('').forEach((digitChar, index) => {
                 setTimeout(() => {
+                    // Clear the spinning interval for this digit
+                    clearInterval(spinIntervals[index]);
+                    
                     const roller = digitRollers[index];
+                    const finalDigit = parseInt(digitChar, 10);
+                    
+                    // Perform a slowing down animation
                     roller.classList.remove('spinning');
                     
-                    // Slow down animation before stopping
-                    const slowSpins = 10;
-                    let currentSpin = 0;
+                    // Do a few more slow spins before landing on final digit
+                    let slowSpinCount = 0;
+                    const maxSlowSpins = 5 + Math.floor(Math.random() * 5);
+                    
                     const slowInterval = setInterval(() => {
-                        const position = -((currentSpin % 10) * 150);
-                        roller.style.top = position + 'px';
-                        currentSpin++;
-                        
-                        if (currentSpin >= slowSpins) {
+                        if (slowSpinCount < maxSlowSpins) {
+                            // Continue spinning but slower
+                            const currentTop = parseInt(roller.style.top) || 0;
+                            roller.style.transition = 'top 0.1s ease-out';
+                            roller.style.top = (currentTop - 150) + 'px';
+                            slowSpinCount++;
+                        } else {
+                            // Stop on the final digit
                             clearInterval(slowInterval);
-                            // Set final digit
-                            roller.style.transition = 'top 0.3s ease-out';
-                            setDigit(index, digit);
                             
+                            // Smooth transition to final position
+                            roller.style.transition = 'top 0.4s cubic-bezier(0.4, 0.0, 0.2, 1)';
+                            
+                            // Calculate exact position for the target digit
+                            const targetSet = 10; // Use middle set for final display
+                            const finalPosition = -(targetSet * 10 + finalDigit) * 150;
+                            roller.style.top = finalPosition + 'px';
+                            
+                            // Add a subtle bounce effect
                             setTimeout(() => {
-                                roller.style.transition = 'top 0.1s linear';
-                            }, 300);
+                                roller.style.transition = 'top 0.2s ease-out';
+                                roller.style.top = (finalPosition + 5) + 'px';
+                                
+                                setTimeout(() => {
+                                    roller.style.top = finalPosition + 'px';
+                                }, 200);
+                            }, 400);
                         }
-                    }, 100);
+                    }, 150);
+                    
                 }, stopDelay + (index * delayBetweenDigits));
             });
 
-            // Finish animation
+            // Complete animation and trigger callback
+            const totalAnimationTime = stopDelay + (8 * delayBetweenDigits) + 1500;
             setTimeout(() => {
-                clearInterval(spinInterval);
                 jackpotContainer.classList.remove('spinning');
+                
+                // Ensure all digits show the correct final values
+                for (let i = 0; i < 8; i++) {
+                    setDigit(i, paddedNumber[i], true);
+                }
+                
                 if (callback) callback();
-            }, stopDelay + (8 * delayBetweenDigits) + 500);
+            }, totalAnimationTime);
         }
 
         function createFireworks() {
@@ -736,6 +811,9 @@
             winnerSection.classList.remove('show');
             prizeInfo.classList.remove('show');
             
+            // Reset digits to show 00000000 at start
+            displayEmployeeNumber('00000000');
+            
             Promise.all([
                 database.ref('employees').once('value'),
                 database.ref('prizes').once('value'),
@@ -786,7 +864,9 @@
                 setTimeout(() => {
                     const winner = availableEmployees[Math.floor(Math.random() * availableEmployees.length)];
                     
-                    // Start jackpot spin animation
+                    console.log('Winner selected:', winner.name, 'Employee Number:', winner.employeeNumber);
+                    
+                    // Start the improved jackpot spin animation
                     spinDigits(winner.employeeNumber, () => {
                         // Animation complete, show winner details
                         const currentDraw = {
@@ -802,7 +882,6 @@
                         database.ref('currentDraw').set(currentDraw);
 
                         winnerName.textContent = winner.name;
-                        winnerEmployee.textContent = `Employee No. ${winner.employeeNumber}`;
                         winnerCostcentre.textContent = winner.costcentre || 'N/A';
                         
                         winnerSection.classList.add('show');
