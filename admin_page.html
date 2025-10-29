@@ -317,15 +317,17 @@
                     <thead>
                         <tr>
                             <th>#</th>
+                            <th>Prize Number</th>
+                            <th>Prize Name</th>
                             <th>Name</th>
                             <th>Employee Number</th>
-                            <th>Prize</th>
-                            <th>Time</th>
+                            <th>Cost Centre</th>
+                            <th>Date Time</th>
                         </tr>
                     </thead>
                     <tbody id="winnersTable">
                         <tr>
-                            <td colspan="5" style="text-align: center; color: #999;">No winners yet</td>
+                            <td colspan="7" style="text-align: center; color: #999;">No winners yet</td>
                         </tr>
                     </tbody>
                 </table>
@@ -348,7 +350,7 @@
                 
                 <div class="upload-group">
                     <h3>Upload Employee List</h3>
-                    <p style="color: #666; margin-bottom: 10px;">Excel file should have columns: name, employeeNumber</p>
+                    <p style="color: #666; margin-bottom: 10px;">Excel file should have columns: name, employeeNumber, costcentre</p>
                     <input type="file" id="employeeFile" accept=".xlsx,.xls" class="file-input">
                     <button class="upload-btn" onclick="loadEmployees()">Upload Employees</button>
                     <div id="employeeStatus"></div>
@@ -533,16 +535,18 @@
             const tbody = document.getElementById('winnersTable');
             
             if (!winners || winners.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #999;">No winners yet</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #999;">No winners yet</td></tr>';
                 return;
             }
 
             tbody.innerHTML = winners.map((w, i) => `
                 <tr>
                     <td>${i + 1}</td>
-                    <td>${w.name}</td>
-                    <td>${w.employeeNumber}</td>
-                    <td>${w.prizeName}</td>
+                    <td>${w.prizeNumber || 'N/A'}</td>
+                    <td>${w.prizeName || 'N/A'}</td>
+                    <td>${w.name || 'N/A'}</td>
+                    <td>${w.employeeNumber || 'N/A'}</td>
+                    <td>${w.costcentre || 'N/A'}</td>
                     <td>${new Date(w.timestamp).toLocaleString()}</td>
                 </tr>
             `).join('');
@@ -561,10 +565,12 @@
 
                 const data = winners.map((w, i) => ({
                     'No': i + 1,
-                    'Name': w.name,
-                    'Employee Number': w.employeeNumber,
-                    'Prize': w.prizeName,
-                    'Time': new Date(w.timestamp).toLocaleString()
+                    'Prize Number': w.prizeNumber || 'N/A',
+                    'Prize Name': w.prizeName || 'N/A',
+                    'Name': w.name || 'N/A',
+                    'Employee Number': w.employeeNumber || 'N/A',
+                    'Cost Centre': w.costcentre || 'N/A',
+                    'Date Time': new Date(w.timestamp).toLocaleString()
                 }));
 
                 const ws = XLSX.utils.json_to_sheet(data);
@@ -583,14 +589,21 @@
             
             if (!doubleConfirm) return;
 
-            if (!database) return;
+            if (!database) {
+                alert('Firebase is not initialized.');
+                return;
+            }
 
+            // Clear all relevant data nodes
+            database.ref('employees').remove();
+            database.ref('prizes').remove();
             database.ref('winners').remove();
             database.ref('currentDraw').remove();
-            
+            database.ref('drawTrigger').remove();
+
             document.getElementById('actionButtons').classList.remove('show');
-            
-            alert('✅ Lucky draw has been reset successfully!');
+
+            alert('✅ All lucky draw data has been reset successfully!');
         }
 
         function setupListeners() {
@@ -606,6 +619,7 @@
                         <h3>🎉 New Winner!</h3>
                         <p><strong>Name:</strong> ${draw.name}</p>
                         <p><strong>Employee Number:</strong> ${draw.employeeNumber}</p>
+                        <p><strong>Cost Centre:</strong> ${draw.costcentre || 'N/A'}</p>
                         <p><strong>Prize:</strong> ${draw.prizeName}</p>
                     `;
                     
